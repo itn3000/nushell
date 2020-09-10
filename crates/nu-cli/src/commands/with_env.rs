@@ -2,8 +2,7 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SyntaxShape, Value, SpannedTypeName, ShellTypeName};
-use nu_source::Tagged;
+use nu_protocol::{hir::Block, Signature, SpannedTypeName, SyntaxShape, Value};
 
 pub struct WithEnv;
 
@@ -46,21 +45,23 @@ impl WholeStreamCommand for WithEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Set the MYENV environment variable",
-            example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
-            result: Some(vec![Value::from("my env value")]),
-        },
-        Example {
-            description: "Set multiple environment variables",
-            example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
-            result: Some(vec![Value::from("Y"), Value::from("Z")]),
-        },
-        Example {
-            description: "Set variables from json object",
-            example: r#"with-env $(echo '{"X":"Y"}'|from json) { echo $nu.env.X }"#,
-            result: Some(vec![Value::from("Y")]),
-        }]
+        vec![
+            Example {
+                description: "Set the MYENV environment variable",
+                example: r#"with-env [MYENV "my env value"] { echo $nu.env.MYENV }"#,
+                result: Some(vec![Value::from("my env value")]),
+            },
+            Example {
+                description: "Set multiple environment variables",
+                example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
+                result: Some(vec![Value::from("Y"), Value::from("Z")]),
+            },
+            Example {
+                description: "Set variables from json object",
+                example: r#"echo '{"X":"Y"}'|from json|with-env $it { echo $nu.env.X }"#,
+                result: None,
+            },
+        ]
     }
 }
 
@@ -75,19 +76,24 @@ async fn with_env(
     let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
     match variable.value.clone() {
         nu_protocol::UntaggedValue::Row(r) => {
-            for (k, v ) in r.entries {
+            for (k, v) in r.entries {
                 scope.env.insert(k, v.convert_to_string());
             }
-        },
+        }
         nu_protocol::UntaggedValue::Table(v) => {
             for item in v.chunks(2) {
                 if item.len() == 2 {
-                    scope.env.insert(item[0].convert_to_string(), item[1].convert_to_string());
+                    scope
+                        .env
+                        .insert(item[0].convert_to_string(), item[1].convert_to_string());
                 }
             }
-        },
+        }
         _ => {
-            return Err(ShellError::type_error("string list or single row", variable.spanned_type_name()));
+            return Err(ShellError::type_error(
+                "string list or single row",
+                variable.spanned_type_name(),
+            ));
         }
     };
 
