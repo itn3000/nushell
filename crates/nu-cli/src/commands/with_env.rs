@@ -55,6 +55,11 @@ impl WholeStreamCommand for WithEnv {
             description: "Set multiple environment variables",
             example: r#"with-env [X Y W Z] { echo $nu.env.X $nu.env.W }"#,
             result: Some(vec![Value::from("Y"), Value::from("Z")]),
+        },
+        Example {
+            description: "Set variables from json object",
+            example: r#"with-env $(echo '{"X":"Y"}'|from json) { echo $nu.env.X }"#,
+            result: Some(vec![Value::from("Y")]),
         }]
     }
 }
