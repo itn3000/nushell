@@ -2,14 +2,14 @@ use crate::commands::classified::block::run_block;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{hir::Block, Signature, SyntaxShape, Value};
+use nu_protocol::{hir::Block, Signature, SyntaxShape, Value, SpannedTypeName, ShellTypeName};
 use nu_source::Tagged;
 
 pub struct WithEnv;
 
 #[derive(Deserialize, Debug)]
 struct WithEnvArgs {
-    variable: Vec<Tagged<String>>,
+    variable: Value,
     block: Block,
 }
 
@@ -63,12 +63,29 @@ async fn with_env(
     let mut context = Context::from_raw(&raw_args, &registry);
     let mut scope = raw_args.call_info.scope.clone();
     let (WithEnvArgs { variable, block }, input) = raw_args.process(&registry).await?;
-
-    for v in variable.chunks(2) {
-        if v.len() == 2 {
-            scope.env.insert(v[0].item.clone(), v[1].item.clone());
+    match variable.value.clone() {
+        nu_protocol::UntaggedValue::Row(r) => {
+            for (k, v ) in r.entries {
+                scope.env.insert(k, v.convert_to_string());
+            }
+        },
+        nu_protocol::UntaggedValue::Table(v) => {
+            for item in v.chunks(2) {
+                if item.len() == 2 {
+                    scope.env.insert(item[0].convert_to_string(), item[1].convert_to_string());
+                }
+            }
+        },
+        _ => {
+            return Err(ShellError::type_error("string list or single row", variable.spanned_type_name()));
         }
-    }
+    };
+
+    // for v in variable.chunks(2) {
+    //     if v.len() == 2 {
+    //         scope.env.insert(v[0].item.clone(), v[1].item.clone());
+    //     }
+    // }
 
     let result = run_block(
         &block,
