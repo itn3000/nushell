@@ -97,12 +97,6 @@ async fn with_env(
         }
     };
 
-    // for v in variable.chunks(2) {
-    //     if v.len() == 2 {
-    //         scope.env.insert(v[0].item.clone(), v[1].item.clone());
-    //     }
-    // }
-
     let result = run_block(
         &block,
         &mut context,
